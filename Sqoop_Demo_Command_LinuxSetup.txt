@@ -1,0 +1,128 @@
+Go here for instructions on how to install Apache BigTop and Hadoop/Sqoop:
+https://cwiki.apache.org/confluence/display/BIGTOP/How+to+install+Hadoop+distribution+from+Bigtop+0.5.0
+
+Commands I ran:
+sudo wget -O /etc/yum.repos.d/bigtop.repo http://archive.apache.org/dist/bigtop/bigtop-0.5.0/repos/centos6/bigtop.repo
+sudo yum search sqoop
+
+Install Hadoop/Sqoop/MySQL:
+
+sudo yum install hadoop
+sudo yum install sqoop
+sudo yum install mysql
+sudo yum install mysql-server
+
+Start MySQL server daemon:
+
+sudo service mysqld start
+
+Login and create database:
+
+mysql -u root
+create database sqoop_demo;
+use sqoop_demo;
+CREATE TABLE orders(id INT, name VARCHAR(30));
+mysql> show tables;
++----------------------+
+| Tables_in_sqoop_demo |
++----------------------+
+| orders               |
++----------------------+
+1 row in set (0.00 sec)
+
+mysql> INSERT INTO orders(id,name) VALUES(1, "orderA");
+Query OK, 1 row affected (0.00 sec)
+
+mysql> INSERT INTO orders(id,name) VALUES(2, "orderB");
+Query OK, 1 row affected (0.00 sec)
+
+mysql> INSERT INTO orders(id,name) VALUES(3, "orderC");
+Query OK, 1 row affected (0.00 sec)
+
+mysql> INSERT INTO orders(id,name) VALUES(4, "orderD");
+Query OK, 1 row affected (0.00 sec)
+
+mysql> INSERT INTO orders(id,name) VALUES(5, "orderE");
+Query OK, 1 row affected (0.00 sec)
+
+
+mysql> select * from orders;
++------+--------+
+| id   | name   |
++------+--------+
+|    1 | orderA |
+|    2 | orderB |
+|    3 | orderC |
+|    4 | orderD |
+|    5 | orderE |
++------+--------+
+5 rows in set (0.00 sec)
+
+
+Download and copy mysql JDBC connection driver jar from  http://www.mysql.com/downloads/connector/j/  to /usr/lib/sqoop/lib (the Sqoop lib folder)
+
+[idcuser@vhost#### ~]$ ls -l
+total 76380
+drwxrwxr-x. 8 idcuser idcuser     4096 Dec  3  2009 glassfishv3
+-rw-r--r--. 1 idcuser idcuser 77265571 Sep 11 04:07 glassfish-v3.zip
+-rw-r--r--. 1 idcuser idcuser   855948 Jul 24 00:07 mysql-connector-java-5.1.26-bin.jar
+[idcuser@vhost#### ~]$ sudo cp mysql-connector-java-5.1.26-bin.jar /usr/lib/sqoop/lib/
+
+[idcuser@vhost#### ~]$ sudo yum install java-1.7.0-openjdk-devel
+
+Installed:
+  java-1.7.0-openjdk.x86_64 1:1.7.0.25-2.3.10.4.el6_4
+
+Complete!
+[idcuser@vhost#### ~]$ java -version
+java version "1.7.0_25"
+OpenJDK Runtime Environment (rhel-2.3.10.4.el6_4-x86_64)
+OpenJDK 64-Bit Server VM (build 23.7-b01, mixed mode)
+
+export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk.x86_64/
+
+sqoop import --connect jdbc:mysql://localhost/sqoop_demo --table orders --username root -P --target-dir /home/idcuser/orders -m 1
+
+
+[idcuser@vhost#### ~]$ hadoop fs -ls /home/idcuser/orders
+Found 2 items
+-rwxr-xr-x   1 idcuser idcuser          0 2013-10-28 19:10 /home/idcuser/orders/_SUCCESS
+-rwxr-xr-x   1 idcuser idcuser         45 2013-10-28 19:10 /home/idcuser/orders/part-m-00000
+
+
+[idcuser@vhost#### ~]$ hadoop fs -cat /home/idcuser/orders/part-m-*
+1,orderA
+2,orderB
+3,orderC
+4,orderD
+5,orderE
+
+Create table for orders_exported (for HDFS to MySQL)
+
+mysql -u root
+use sqoop_demo;
+CREATE TABLE orders_exported(id INT, name VARCHAR(30));
+
+select * from orders_exported;
+Empty set (0.00 sec)
+
+Run sqoop Export command to transfer data from HDFS to MySQL:
+sqoop export --connect jdbc:mysql://localhost/sqoop_demo --table orders_exported --export-dir /home/idcuser/orders --username root -m 1
+
+mysql -u root
+mysql> use sqoop_demo;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> select * from orders_exported;
++------+--------+
+| id   | name   |
++------+--------+
+|    1 | orderA |
+|    2 | orderB |
+|    3 | orderC |
+|    4 | orderD |
+|    5 | orderE |
++------+--------+
+5 rows in set (0.00 sec)
